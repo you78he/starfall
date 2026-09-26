@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>星陨幸存者 · STARFALL SURVIVORS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- ======================= HUD ======================= -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="bar bar-hp">
+          <div class="bar-fill" id="hpFill"></div>
+          <div class="bar-text" id="hpText">100 / 100</div>
+          <div class="bar-ghost" id="hpGhost"></div>
+        </div>
+        <div class="bar bar-xp">
+          <div class="bar-fill" id="xpFill"></div>
+          <div class="bar-text" id="xpText">LV.1</div>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="stat" id="statNextWrap"><span class="stat-k" id="statNextK">下一波</span><span class="stat-v" id="statNext">--</span></div>
+        <div class="stat"><span class="stat-k">时间</span><span class="stat-v" id="statTime">00:00</span></div>
+        <div class="stat"><span class="stat-k">波次</span><span class="stat-v" id="statWave">1</span></div>
+        <div class="stat"><span class="stat-k">击杀</span><span class="stat-v" id="statKills">0</span></div>
+        <div class="stat gold"><span class="stat-k">金币</span><span class="stat-v" id="statGold">0</span></div>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div id="relicBar" class="relic-bar"></div>
+      <div id="loadout" class="loadout"></div>
+      <div id="bossBar" class="boss-bar hidden">
+        <div class="boss-name" id="bossName">BOSS</div>
+        <div class="boss-track"><div class="boss-fill" id="bossFill"></div></div>
+      </div>
+    </div>
+
+    <div id="fpsBox" class="fps-box hidden"><span id="fpsVal">60</span> fps · <span id="msVal">0.0</span> ms</div>
+
+    <div class="ability-dock">
+      <div id="shopBtn" class="ability shop-dock" title="局内补给（B）">
+        <span class="ability-glyph">⛭</span>
+        <span class="ability-label" id="shopGoldHud">0</span>
+        <span class="ability-key">B</span>
+      </div>
+      <div id="ultRing" class="ability ult-ring" title="终极技能（Q）">
+        <span class="ability-glyph" id="ultGlyph">☄</span>
+        <span class="ability-label" id="ultPct">0%</span>
+        <span class="ability-key">Q</span>
+      </div>
+      <div id="dashRing" class="ability dash-ring" title="冲刺（空格）">
+        <span>冲刺</span>
+        <span class="ability-key">SPACE</span>
+      </div>
+    </div>
+    <div id="combo" class="combo hidden"></div>
+    <div id="banner" class="banner hidden"></div>
+    <div id="toasts" class="toasts"></div>
+  </div>
+
+  <!-- ======================= 触屏控制（移动端） ======================= -->
+  <div id="touch" class="touch hidden">
+    <div id="stickZone" class="stick-zone"><div id="stickKnob" class="stick-knob"></div></div>
+    <div class="touch-buttons">
+      <button id="touchUlt" class="touch-btn touch-ult">终</button>
+      <button id="touchDash" class="touch-btn touch-dash">冲</button>
+    </div>
+  </div>
+
+  <!-- ======================= 主菜单 ======================= -->
+  <div id="menu" class="overlay">
+    <div class="panel menu-panel">
+      <h1 class="title">星陨幸存者</h1>
+      <div class="subtitle">S T A R F A L L &nbsp; S U R V I V O R S</div>
+
+      <div class="section-label">选择角色</div>
+      <div id="charList" class="char-list"></div>
+
+      <div id="difficultyList" class="diff-list"></div>
+
+      <div class="section-label">挑战模式</div>
+      <div class="challenge-box">
+        <div class="ch-head">
+          <span class="ch-title">今日挑战</span>
+          <span class="ch-date" id="chDate">—</span>
+        </div>
+        <div class="ch-body" id="chBody"></div>
+        <div class="ch-actions">
+          <button id="btnDaily" class="btn btn-sm btn-primary">开始今日挑战</button>
+          <button id="btnRandom" class="btn btn-sm">随机挑战</button>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btnStart" class="btn btn-primary btn-lg">开始游戏</button>
+        <button id="btnShop" class="btn">星港商店</button>
+        <button id="btnArchive" class="btn">档案室</button>
+        <button id="btnSettings" class="btn">设置</button>
+      </div>
+
+      <div class="menu-foot">
+        <div class="hint">
+          <b>WASD / 方向键</b> 移动 &nbsp;·&nbsp; <b>空格</b> 冲刺(无敌帧) &nbsp;·&nbsp;
+          <b>Q</b> 终极技能 &nbsp;·&nbsp; <b>ESC / P</b> 暂停 &nbsp;·&nbsp; <b>M</b> 音效 &nbsp;·&nbsp;
+          武器<b>自动攻击</b>最近敌人
+        </div>
+        <div class="hint small">武器满 8 级 + 对应被动 → 升级时可选 <b>★ 进化</b> &nbsp;·&nbsp; 精英带词缀，Boss 必掉<b>遗物</b></div>
+        <div class="records" id="records"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 升级三选一 ======================= -->
+  <div id="levelup" class="overlay hidden">
+    <div class="panel levelup-panel">
+      <div class="lu-head">
+        <h2>等级提升 <span class="lv" id="luLevel">2</span></h2>
+        <div class="lu-sub" id="luSub">选择一项强化</div>
+      </div>
+      <div id="cardList" class="card-list"></div>
+      <div class="lu-actions">
+        <button id="btnReroll" class="btn btn-sm">重掷 <span id="rerollCount">1</span></button>
+        <button id="btnSkip" class="btn btn-sm btn-ghost">跳过 (回复 15 生命)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 暂停 ======================= -->
+  <div id="pause" class="overlay hidden">
+    <div class="panel small-panel pause-panel">
+      <h2>已暂停</h2>
+      <div id="pauseStats" class="mini-stats"></div>
+      <div class="section-label">当前构筑</div>
+      <div id="pauseBuild" class="build-panel"></div>
+      <div class="section-label">属性明细</div>
+      <div id="pauseAttr" class="attr-grid"></div>
+      <div class="menu-actions col">
+        <button id="btnResume" class="btn btn-primary">继续游戏</button>
+        <button id="btnSettings2" class="btn">设置</button>
+        <button id="btnToggleSound" class="btn">音效：开</button>
+        <button id="btnToggleFx" class="btn">画面特效：完整</button>
+        <button id="btnQuit" class="btn btn-ghost">放弃并返回主菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 结算 ======================= -->
+  <div id="gameover" class="overlay hidden">
+    <div class="panel small-panel">
+      <h2 id="goTitle" class="go-title">你被吞噬了</h2>
+      <div id="goStats" class="mini-stats"></div>
+      <div class="section-label">输出统计</div>
+      <div id="goDamage" class="dmg-panel"></div>
+      <div class="gold-earn">
+        <span>本局获得金币</span>
+        <b id="goGold">+0</b>
+      </div>
+      <div class="menu-actions col">
+        <button id="btnRetry" class="btn btn-primary">再来一局</button>
+        <button id="btnArchive2" class="btn">档案室 / 成就</button>
+        <button id="btnShop2" class="btn">星港商店</button>
+        <button id="btnMenu" class="btn btn-ghost">返回主菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 商店 ======================= -->
+  <div id="shop" class="overlay hidden">
+    <div class="panel shop-panel">
+      <div class="shop-head">
+        <h2>星港商店</h2>
+        <div class="shop-gold">金币 <b id="shopGold">0</b></div>
+      </div>
+      <div class="shop-sub">永久强化，作用于之后的所有局</div>
+      <div id="shopList" class="shop-list"></div>
+      <div class="menu-actions">
+        <button id="btnShopReset" class="btn btn-ghost btn-sm">重置全部强化</button>
+        <button id="btnShopClose" class="btn btn-primary">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 局内补给商店（休息时段按 B 打开） ======================= -->
+  <div id="runshop" class="overlay hidden">
+    <div class="panel shop-panel">
+      <div class="shop-head">
+        <h2>局内补给</h2>
+        <div class="shop-gold">本局金币 <b id="runGold">0</b></div>
+      </div>
+      <div class="shop-sub"><b id="restWave2">第 1 波已清除</b> · 剩下的休息时间 <b id="restTimer2">14s</b>（关闭后继续计时）</div>
+      <div id="runShopList" class="shop-list"></div>
+      <div class="menu-actions">
+        <button id="btnRunShopClose" class="btn btn-primary">返回（B）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 设置 ======================= -->
+  <div id="settings" class="overlay hidden">
+    <div class="panel shop-panel">
+      <div class="shop-head">
+        <h2>设置</h2>
+        <div class="shop-gold">改动即时生效并自动保存</div>
+      </div>
+      <div class="shop-sub">手感与性能相关的开关，点一下就切换 · 立刻生效并自动保存 · ESC 返回</div>
+      <div id="settingsList" class="shop-list"></div>
+      <div class="menu-actions">
+        <button id="btnSettingsReset" class="btn btn-ghost btn-sm">恢复默认</button>
+        <button id="btnSettingsClose" class="btn btn-primary">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 档案室（图鉴 / 成就 / 战绩） ======================= -->
+  <div id="archive" class="overlay hidden">
+    <div class="panel archive-panel">
+      <div class="shop-head">
+        <h2>档案室</h2>
+        <div class="shop-gold">成就 <b id="achCount">0/26</b> &nbsp; 金币 <b id="achGold">0</b></div>
+      </div>
+      <div class="tabs">
+        <div class="tab sel" id="tabCodex">图鉴</div>
+        <div class="tab" id="tabAch">成就</div>
+        <div class="tab" id="tabHist">战绩</div>
+      </div>
+      <div id="archiveBody" class="archive-body"></div>
+      <div class="menu-actions">
+        <button id="btnArchiveClose" class="btn btn-primary">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 开场提示 ======================= -->
+  <div id="splash" class="splash hidden"><span>准备迎击</span></div>
+</div>
+
+<script src="js/engine.js"></script>
+<script src="js/content.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
